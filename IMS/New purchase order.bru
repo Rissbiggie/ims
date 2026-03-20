@@ -1,0 +1,15 @@
+meta {
+  name: New purchase order
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:8000/api/purchase-orders
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

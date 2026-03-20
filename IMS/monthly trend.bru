@@ -1,0 +1,19 @@
+meta {
+  name: monthly trend
+  type: http
+  seq: 4
+}
+
+get {
+  url: http://localhost:8000/api/reports/monthly-trend
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: 22|WcYaGCDC4birJAaGWFG1hjMfBWr36sbTzwR1uxr4b036fe7b
+}
+
+settings {
+  encodeUrl: true
+}
