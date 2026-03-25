@@ -1,0 +1,19 @@
+meta {
+  name: supplier perfomance
+  type: http
+  seq: 3
+}
+
+get {
+  url: http://localhost:8000/api/reports/supplier-performance
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: 8|UUWCrcY9mZbjPwg5whW7rFkE1mUVVZdiru8Ea4ZA25d64dc3
+}
+
+settings {
+  encodeUrl: true
+}

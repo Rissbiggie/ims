@@ -1,0 +1,15 @@
+meta {
+  name: approve purchase
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8000/api/purchase-orders/5/approve
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

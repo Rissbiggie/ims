@@ -119,31 +119,57 @@ class ReportService
     /**
      * Dashboard summary statistics.
      */
-    public function dashboardStats(): array
+  public function dashboardStats(): array
     {
+        // 1. Basic Counts
         $totalProducts    = Product::active()->count();
         $lowStockCount    = Product::active()->lowStock()->count();
         $outOfStockCount  = Product::active()->outOfStock()->count();
-        $totalStockValue  = Product::active()->with('stock')
+        
+        // 2. Financial Valuation
+        $totalStockValue  = Product::active()
             ->get()
             ->sum(fn ($p) => $p->current_quantity * $p->unit_price);
 
+        // 3. Workflow Status
         $pendingPOs    = PurchaseOrder::where('status', 'pending_approval')->count();
         $pendingReqs   = Requisition::where('status', 'pending')->count();
 
+        // 4. Recent Activity (for the left panel)
         $recentTransactions = StockTransaction::with(['product', 'performedBy'])
-            ->latest('transaction_date')
-            ->limit(10)
-            ->get();
+            ->latest()
+            ->limit(8)
+            ->get()
+            ->map(fn($t) => [
+                'id' => $t->id,
+                'product_name' => $t->product->name,
+                'change' => $t->quantity_change,
+                'type' => $t->quantity_change > 0 ? 'IN' : 'OUT',
+                'user' => $t->performedBy->name ?? 'System',
+                'date' => $t->created_at->diffForHumans(),
+            ]);
+
+        // 5. Unresolved Alerts (for the right panel)
+        $unresolvedAlerts = Product::active()
+            ->lowStock()
+            ->limit(8)
+            ->get()
+            ->map(fn($p) => [
+                'id' => $p->id,
+                'product_name' => $p->name,
+                'current_stock' => $p->current_quantity,
+                'threshold' => $p->low_stock_threshold,
+            ]);
 
         return [
-            'total_products'     => $totalProducts,
-            'low_stock_count'    => $lowStockCount,
-            'out_of_stock_count' => $outOfStockCount,
-            'total_stock_value'  => round($totalStockValue, 2),
-            'pending_po_count'   => $pendingPOs,
-            'pending_req_count'  => $pendingReqs,
-            'recent_transactions'=> $recentTransactions,
+            'total_products'      => $totalProducts,
+            'low_stock_count'     => $lowStockCount,
+            'out_of_stock_count'  => $outOfStockCount,
+            'total_stock_value'   => round($totalStockValue, 2),
+            'pending_po_count'    => $pendingPOs,
+            'pending_req_count'   => $pendingReqs,
+            'recent_transactions' => $recentTransactions,
+            'unresolved_alerts'   => $unresolvedAlerts,
         ];
     }
 

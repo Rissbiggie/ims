@@ -1,0 +1,26 @@
+meta {
+  name: stock movement
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:8000/api/reports/stock-movement
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: 8|UUWCrcY9mZbjPwg5whW7rFkE1mUVVZdiru8Ea4ZA25d64dc3
+}
+
+body:json {
+  {
+    "from":"23",
+    "to":"23"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
