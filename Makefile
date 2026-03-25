@@ -37,6 +37,15 @@ clear-cache: ## Clear all application caches
 	docker compose exec app php artisan route:clear
 	@echo "✓ All caches cleared"
 
+setup: build up ## Full first-time setup (Handles permissions and keys)
+	docker compose exec app composer install
+	docker compose exec app php artisan key:generate --force
+	@make allow-permissions
+	@make fix-permissions
+	@make migrate-fresh 
+	@make clear-cache
+	@echo "✨ Setup complete! Visit http://localhost:8000"
+
 logs: ## View container logs
 	docker compose logs -f app
 
@@ -48,10 +57,17 @@ deploy: ## Prepare the app for a production-like environment
 	@echo "🚀 Starting Deployment sequence..."
 	docker compose exec app composer install --no-dev --optimize-autoloader
 	docker compose exec app php artisan key:generate --force
-	@make migrate-fresh @make clear-cache
+	docker compose exec app php artisan config:cache
+	docker compose exec app php artisan route:cache
+	docker compose exec app php artisan view:cache
 	@make allow-permissions
 	@make fix-permissions
-	@echo "✨ Deployment successful! Visit http://localhost:8000"
+	@echo "✨ Deployment successful!"
 
-restart: ## Quick fix for Linux permission 500 errors
-	docker compose restart 
+fix: ## Quick fix for Linux permission 500 errors
+	docker compose exec app chown -R www-data:www-data /var/www/storage /var/www/database
+	docker compose exec app chmod -R 775 /var/www/storage /var/www/database
+	@echo "✅ Permissions reset for Linux"
+
+restart: ## Restart all services
+	docker compose restart

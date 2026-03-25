@@ -44,8 +44,8 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex justify-between items-end mb-10 pb-6 border-b-2 border-gray-900">
         <div>
-          <h1 className="font-mono text-2xl font-bold tracking-tighter uppercase italic">IMS Dashboard</h1>
-          <p className="text-xs text-gray-500 font-medium">System Status: <span className="text-green-600 uppercase">Operational</span></p>
+          {/* <h1 className="font-mono text-2xl font-bold tracking-tighter uppercase italic">IMS Dashboard</h1> */}
+         { /* <p className="text-xs text-gray-500 font-medium">System Status: <span className="text-green-600 uppercase">Operational</span></p> */ }
         </div>
         <div className="text-right">
           <p className="font-mono text-xs text-gray-400 uppercase tracking-widest">Inventory Value</p>
