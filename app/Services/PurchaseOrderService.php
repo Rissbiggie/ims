@@ -77,72 +77,79 @@ class PurchaseOrderService
     /**
      * Reject a pending purchase order.
      */
-    public function reject(PurchaseOrder $po, User $rejector, string $reason): PurchaseOrder
-    {
-        abort_if(!$po->canBeApproved(), 422, 'This order cannot be rejected in its current state.');
+    // PurchaseOrderService.php
 
-        $po->update([
-            'status'           => 'cancelled',
-            'rejection_reason' => $reason,
-        ]);
+/**
+ * Reject a pending purchase order.
+ */
+public function reject(PurchaseOrder $po, User $rejector, string $reason): PurchaseOrder
+{
+    // Ensure it's in pending_approval before rejecting
+    abort_if($po->status !== 'pending_approval', 422, 'Only pending orders can be rejected.');
 
-        AuditLog::record('purchase_order.rejected', $rejector->id, PurchaseOrder::class, $po->id);
+    $po->update([
+        'status'           => 'rejected', // Changed from 'cancelled' to 'rejected'
+        'rejection_reason' => $reason,
+    ]);
 
-        return $po;
-    }
+    AuditLog::record('purchase_order.rejected', $rejector->id, PurchaseOrder::class, $po->id);
 
-    /**
-     * Receive goods against a purchase order (partial or full).
-     */
-    public function receive(PurchaseOrder $po, array $receivedItems, User $receiver): PurchaseOrder
-    {
-        abort_if(!$po->canBeReceived(), 422, 'This order cannot be received in its current state.');
+    return $po;
+}
 
-        return DB::transaction(function () use ($po, $receivedItems, $receiver) {
-            foreach ($receivedItems as $itemData) {
-                /** @var PurchaseOrderItem $item */
-                $item = $po->items()->where('product_id', $itemData['product_id'])->firstOrFail();
+/**
+ * Receive goods against a purchase order.
+ */
+public function receive(PurchaseOrder $po, array $receivedItems, User $receiver): PurchaseOrder
+{
+    abort_if($po->status !== 'approved' && $po->status !== 'partially_received', 422, 'Order must be approved to receive goods.');
 
-                $qtyToReceive = (int) $itemData['quantity_received'];
-                if ($qtyToReceive <= 0) continue;
+    return DB::transaction(function () use ($po, $receivedItems, $receiver) {
+        foreach ($receivedItems as $itemData) {
+            // Find the item within this PO context
+            $item = $po->items()->where('product_id', $itemData['product_id'])->first();
 
-                $remaining = $item->remaining_quantity;
-                if ($qtyToReceive > $remaining) {
-                    throw new \DomainException(
-                        "Cannot receive {$qtyToReceive} units for product ID {$item->product_id}. Remaining: {$remaining}."
-                    );
-                }
+            if (!$item) continue; 
 
-                $item->increment('quantity_received', $qtyToReceive);
+            $qtyToReceive = (int) $itemData['quantity_received'];
+            $remaining = $item->quantity_ordered - $item->quantity_received;
 
-                // Record stock transaction
-                $this->stockService->stockIn(
-                    product:         $item->product,
-                    quantity:        $qtyToReceive,
-                    user:            $receiver,
-                    unitCost:        $item->unit_price,
-                    reason:          "Received against PO #{$po->order_number}",
-                    documentRef:     $po->order_number,
-                    transactionable: $po,
+            if ($qtyToReceive > $remaining) {
+                throw new \DomainException(
+                    "Over-receiving not allowed for Product #{$itemData['product_id']}. Max allowed: {$remaining}"
                 );
             }
 
-            // Update PO status
-            $po->refresh();
-            $status = $po->isFullyReceived() ? 'received' : 'partially_received';
-            $updates = ['status' => $status];
-            if ($status === 'received') {
-                $updates['actual_delivery_date'] = now()->toDateString();
-            }
-            $po->update($updates);
+            $item->increment('quantity_received', $qtyToReceive);
 
-            AuditLog::record('purchase_order.received', $receiver->id, PurchaseOrder::class, $po->id);
+            // Trigger stock-in logic
+            $this->stockService->stockIn(
+                product:         $item->product,
+                quantity:        $qtyToReceive,
+                user:            $receiver,
+                unitCost:        $item->unit_price,
+                reason:          "PO Receipt: #{$po->order_number}",
+                documentRef:     $po->order_number,
+                transactionable: $po,
+            );
+        }
 
-            if ($status === 'received') {
-                $po->createdBy->notify(new PurchaseOrderReceived($po));
-            }
+        // Logic for Status Update
+        $po->refresh();
+        
+        // Custom logic: check if all items are fully met
+        $isComplete = $po->items->every(fn($item) => $item->quantity_received >= $item->quantity_ordered);
+        
+        $newStatus = $isComplete ? 'received' : 'partially_received';
+        
+        $po->update([
+            'status' => $newStatus,
+            'actual_delivery_date' => $isComplete ? now() : null
+        ]);
 
-            return $po->fresh(['items.product', 'supplier']);
-        });
-    }
+        AuditLog::record('purchase_order.received', $receiver->id, PurchaseOrder::class, $po->id);
+
+        return $po->fresh(['items.product', 'supplier']);
+    });
+}
 }

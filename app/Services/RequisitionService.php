@@ -17,25 +17,44 @@ class RequisitionService
     ) {}
 
     /**
-     * Create a new stock requisition.
+     * Create a new requisition as either a Draft or Pending.
      */
-    public function create(array $data, array $items, User $requester): Requisition
+    public function create(array $data, array $items, User $requester, bool $shouldSubmit = false): Requisition
     {
-        return DB::transaction(function () use ($data, $items, $requester) {
+        return DB::transaction(function () use ($data, $items, $requester, $shouldSubmit) {
+            $status = $shouldSubmit ? Requisition::STATUS_PENDING : Requisition::STATUS_DRAFT;
+
             $req = Requisition::create([
                 ...$data,
                 'requested_by' => $requester->id,
-                'status'       => 'pending',
+                'status'       => $status,
             ]);
 
             foreach ($items as $item) {
                 $req->items()->create($item);
             }
 
-            AuditLog::record('requisition.created', $requester->id, Requisition::class, $req->id);
+            AuditLog::record("requisition.{$status}", $requester->id, Requisition::class, $req->id);
 
             return $req->fresh(['items.product']);
         });
+    }
+
+    /**
+     * Submit an existing Draft for approval.
+     */
+    public function submit(Requisition $req, User $user): Requisition
+    {
+        abort_if(!$req->canBeSubmitted(), 422, 'Only drafts can be submitted for approval.');
+
+        $req->update(['status' => Requisition::STATUS_PENDING]);
+
+        AuditLog::record('requisition.submitted', $user->id, Requisition::class, $req->id);
+
+        // Optional: Trigger notification to managers here
+        // $req->notifyManagers(new RequisitionPending($req));
+
+        return $req;
     }
 
     /**
@@ -43,7 +62,7 @@ class RequisitionService
      */
     public function approve(Requisition $req, User $approver, array $approvedQuantities = []): Requisition
     {
-        abort_if(!$req->canBeApproved(), 422, 'This requisition cannot be approved in its current state.');
+        abort_if(!$req->canBeApproved(), 422, 'This requisition is not in a submittable state.');
 
         return DB::transaction(function () use ($req, $approver, $approvedQuantities) {
             foreach ($approvedQuantities as $itemId => $qty) {
@@ -51,7 +70,7 @@ class RequisitionService
             }
 
             $req->update([
-                'status'      => 'approved',
+                'status'      => Requisition::STATUS_APPROVED,
                 'approved_by' => $approver->id,
                 'approved_at' => now(),
             ]);
@@ -64,28 +83,11 @@ class RequisitionService
     }
 
     /**
-     * Reject a requisition.
-     */
-    public function reject(Requisition $req, User $rejector, string $reason): Requisition
-    {
-        abort_if(!$req->canBeApproved(), 422, 'This requisition cannot be rejected in its current state.');
-
-        $req->update([
-            'status'           => 'rejected',
-            'rejection_reason' => $reason,
-        ]);
-
-        AuditLog::record('requisition.rejected', $rejector->id, Requisition::class, $req->id);
-
-        return $req;
-    }
-
-    /**
      * Issue stock against an approved requisition.
      */
     public function issue(Requisition $req, array $issuedItems, User $issuer): Requisition
     {
-        abort_if(!$req->canBeIssued(), 422, 'This requisition cannot be issued in its current state.');
+        abort_if(!$req->canBeIssued(), 422, 'This requisition is not ready for issuance.');
 
         return DB::transaction(function () use ($req, $issuedItems, $issuer) {
             foreach ($issuedItems as $itemData) {
@@ -96,18 +98,17 @@ class RequisitionService
                 if ($qtyToIssue <= 0) continue;
 
                 if ($qtyToIssue > $item->remaining_to_issue) {
-                    throw new \DomainException(
-                        "Cannot issue {$qtyToIssue}. Remaining to issue: {$item->remaining_to_issue}."
-                    );
+                    throw new \DomainException("Cannot issue more than approved remaining amount.");
                 }
 
                 $item->increment('quantity_issued', $qtyToIssue);
 
+                // This triggers the actual physical inventory deduction
                 $this->stockService->stockOut(
                     product:         $item->product,
                     quantity:        $qtyToIssue,
                     user:            $issuer,
-                    reason:          "Issued against REQ #{$req->requisition_number} — {$req->department}",
+                    reason:          "Issued against REQ #{$req->requisition_number}",
                     documentRef:     $req->requisition_number,
                     transactionable: $req,
                 );
@@ -115,17 +116,14 @@ class RequisitionService
 
             $req->refresh();
             $allIssued = $req->items->every(fn ($i) => $i->isFullyIssued());
+            
             $req->update([
-                'status'    => $allIssued ? 'issued' : 'partially_issued',
+                'status'    => $allIssued ? Requisition::STATUS_ISSUED : Requisition::STATUS_PARTIAL,
                 'issued_by' => $issuer->id,
                 'issued_at' => now(),
             ]);
 
             AuditLog::record('requisition.issued', $issuer->id, Requisition::class, $req->id);
-
-            if ($allIssued) {
-                $req->requestedBy->notify(new RequisitionIssued($req));
-            }
 
             return $req->fresh(['items.product']);
         });

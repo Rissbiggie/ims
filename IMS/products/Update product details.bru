@@ -1,0 +1,15 @@
+meta {
+  name: Update product details
+  type: http
+  seq: 3
+}
+
+put {
+  url: http://localhost:8000/api/products/{id}
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

@@ -6,12 +6,19 @@ meta {
 
 get {
   url: http://localhost:8000/api/reports/supplier-performance
-  body: none
+  body: json
   auth: bearer
 }
 
 auth:bearer {
-  token: 8|UUWCrcY9mZbjPwg5whW7rFkE1mUVVZdiru8Ea4ZA25d64dc3
+  token: 4|s69lZVbsoK17cfJqX3D6ziIMDX0ny7jmqA4WYomx8964ba9e
+}
+
+body:json {
+  {
+      "from": "2024-01-01",
+      "to": "2024-03-29"
+  }
 }
 
 settings {

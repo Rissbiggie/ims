@@ -43,35 +43,53 @@ export const purchaseOrdersApi = {
 };
 
 export const requisitionsApi = {
-  list: (params) => client.get('/requisitions', { params }),
-  get: (id) => client.get(`/requisitions/${id}`),
+  // GET /requisitions (filtered by status)
+  getAll: (params) => client.get('/requisitions', { params }),
+  
+  // POST /requisitions (payload: { ..., submit: true/false })
   create: (data) => client.post('/requisitions', data),
-  submit: (id) => client.post(`/requisitions/${id}/submit`),
-  approve: (id) => client.post(`/requisitions/${id}/approve`),
-  reject: (id) => client.post(`/requisitions/${id}/reject`),
-  issue: (id) => client.post(`/requisitions/${id}/issue`),
+  
+  // PATCH /requisitions/:id/submit
+  submit: (id) => client.patch(`/requisitions/${id}/submit`),
+  
+  // POST /requisitions/:id/approve (payload: { approved_quantities: {} })
+  approve: (id, data) => client.post(`/requisitions/${id}/approve`, data),
+  
+  // POST /requisitions/:id/issue (payload: { items: [] })
+  issue: (id, data) => client.post(`/requisitions/${id}/issue`, data),
 };
 
 export const dashboardApi = {
   getStats: () => client.get('/dashboard'),
 };
+
 export const reportsApi = {
+    // Standard JSON APIs
+    inventoryValuation: () => client.get('/reports/inventory-valuation'),
+    stockMovement: (from, to) => client.get(`/reports/stock-movement?from=${from}&to=${to}`),
+    lowStock: () => client.get('/reports/low-stock'),
+    supplierPerformance: (from, to) => client.get(`/reports/supplier-performance?from=${from}&to=${to}`),
+    monthlyTrend: () => client.get('/reports/monthly-trend'),
+    topProducts: () => client.get('/reports/top-products'),
+    forecast: () => client.get('/reports/forecast'),
+    categoryDistribution: () => client.get('/reports/category-distribution'),
 
-  inventoryValuation: () =>
-    client.get('/reports/inventory-valuation'),
+    // --- NEW PDF PRINT APIS ---
+    
+    /**
+     * Triggers the Inventory Valuation PDF stream.
+     * Use responseType: 'blob' to handle binary PDF data.
+     */
+    printInventoryPdf: () => client.get('/reports/inventory-valuation/pdf', { 
+        responseType: 'blob' 
+    }),
 
-  stockMovement: (params) =>
-    client.get('/reports/stock-movement', { params }),
-
-  lowStock: () =>
-    client.get('/reports/low-stock'),
-
-  supplierPerformance: (params) =>
-    client.get('/reports/supplier-performance', { params }),
-
-  monthlyTrend: () =>
-    client.get('/reports/monthly-trend'),
-
+    /**
+     * Triggers the Stock Movement PDF download for a specific range.
+     */
+    printMovementPdf: (from, to) => client.get(`/reports/stock-movement/pdf?from=${from}&to=${to}`, { 
+        responseType: 'blob' 
+    }),
 };
 
 export const usersApi = {

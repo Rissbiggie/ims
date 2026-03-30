@@ -18,29 +18,41 @@ class RequisitionController extends Controller
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->department, fn ($q) => $q->where('department', $request->department));
 
-        // Store clerks can only see their own requisitions
-        if ($request->user()->isStoreClerk()) {
+        // Store clerks/Staff see only their own, Managers see all
+        if (!$request->user()->can('view-all-requisitions')) {
             $query->where('requested_by', $request->user()->id);
         }
 
         return response()->json($query->latest()->paginate($request->per_page ?? 20));
     }
 
+    /**
+     * Handle initial creation (Draft or Immediate Submission)
+     */
     public function store(StoreRequisitionRequest $request): JsonResponse
     {
         $req = $this->service->create(
-            $request->safe()->except('items'),
+            $request->safe()->except(['items', 'submit']),
             $request->items,
-            $request->user()
+            $request->user(),
+            $request->boolean('submit') // Frontend sends { submit: true } to skip draft
         );
 
         return response()->json($req, 201);
     }
 
-    public function show(Requisition $requisition): JsonResponse
+    /**
+     * Submit an existing draft
+     */
+    public function submit(Requisition $requisition, Request $request): JsonResponse
     {
+        // Logic check: Only the owner can submit their own draft
+        if ($requisition->requested_by !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized submission.'], 403);
+        }
+
         return response()->json(
-            $requisition->load(['requestedBy', 'approvedBy', 'issuedBy', 'items.product.stock'])
+            $this->service->submit($requisition, $request->user())
         );
     }
 
@@ -55,16 +67,6 @@ class RequisitionController extends Controller
 
         return response()->json(
             $this->service->approve($requisition, $request->user(), $data['approved_quantities'] ?? [])
-        );
-    }
-
-    public function reject(Requisition $requisition, Request $request): JsonResponse
-    {
-        $this->authorize('approve', $requisition);
-        $data = $request->validate(['reason' => ['required', 'string']]);
-
-        return response()->json(
-            $this->service->reject($requisition, $request->user(), $data['reason'])
         );
     }
 

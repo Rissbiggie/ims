@@ -13,6 +13,14 @@ class Requisition extends Model
 {
     use HasFactory, SoftDeletes;
 
+    // Defined constants to avoid "magic strings" throughout the app
+    const STATUS_DRAFT = 'draft';
+    const STATUS_PENDING = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
+    const STATUS_PARTIAL = 'partially_issued';
+    const STATUS_ISSUED = 'issued';
+
     protected $fillable = [
         'requisition_number', 'requested_by', 'approved_by', 'issued_by',
         'status', 'department', 'purpose', 'required_date',
@@ -33,6 +41,11 @@ class Requisition extends Model
         static::creating(function (Requisition $req) {
             if (empty($req->requisition_number)) {
                 $req->requisition_number = static::generateNumber();
+            }
+            
+            // Ensure every requisition starts as a draft if no status is provided
+            if (empty($req->status)) {
+                $req->status = self::STATUS_DRAFT;
             }
         });
     }
@@ -64,17 +77,41 @@ class Requisition extends Model
         return $this->morphMany(StockTransaction::class, 'transactionable');
     }
 
-    // ─── State ────────────────────────────────────────────────────────────────
+    // ─── State Helpers ────────────────────────────────────────────────────────
 
+    /**
+     * Can the requisition be officially submitted for approval?
+     */
+    public function canBeSubmitted(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
+    /**
+     * Can a manager approve this requisition?
+     */
     public function canBeApproved(): bool
     {
-        return $this->status === 'pending';
+        return $this->status === self::STATUS_PENDING;
     }
 
+    /**
+     * Can the store clerk issue items for this?
+     */
     public function canBeIssued(): bool
     {
-        return in_array($this->status, ['approved', 'partially_issued']);
+        return in_array($this->status, [self::STATUS_APPROVED, self::STATUS_PARTIAL]);
     }
+    
+    /**
+     * Can the user still edit the items in this requisition?
+     */
+    public function isEditable(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
+    // ─── Logic ────────────────────────────────────────────────────────────────
 
     public static function generateNumber(): string
     {

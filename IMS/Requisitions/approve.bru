@@ -1,0 +1,15 @@
+meta {
+  name: approve
+  type: http
+  seq: 2
+}
+
+get {
+  url: http://localhost:8000/api/requisitions/approve
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

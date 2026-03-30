@@ -1,0 +1,19 @@
+meta {
+  name: update a purchase order
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:8000/api/purchase-orders
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: 3|DVqkh2Sz2ZOVgGPUo0jRNgj4AzCfmlAFzHvjOloQ6c79cb93
+}
+
+settings {
+  encodeUrl: true
+}

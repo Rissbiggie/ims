@@ -58,24 +58,36 @@ class PurchaseOrderController extends Controller
         return response()->json($this->service->approve($purchaseOrder, $request->user()));
     }
 
-    public function reject(PurchaseOrder $purchaseOrder, Request $request): JsonResponse
+public function reject(PurchaseOrder $purchaseOrder, Request $request): JsonResponse
 {
-    $this->authorize('reject', $purchaseOrder); // <-- use reject policy now
-    $data = $request->validate(['reason' => ['required', 'string']]);
-    return response()->json($this->service->reject($purchaseOrder, $request->user(), $data['reason']));
+    $this->authorize('reject', $purchaseOrder); 
+    
+    // Validate the reason is present
+    $data = $request->validate([
+        'reason' => ['required', 'string', 'max:255']
+    ]);
+
+    return response()->json(
+        $this->service->reject($purchaseOrder, $request->user(), $data['reason'])
+    );
 }
-    public function receive(PurchaseOrder $purchaseOrder, Request $request): JsonResponse
-    {
-        $this->authorize('receive', $purchaseOrder);
 
-        $data = $request->validate([
-            'items'                     => ['required', 'array'],
-            'items.*.product_id'        => ['required', 'integer', 'exists:products,id'],
-            'items.*.quantity_received' => ['required', 'integer', 'min:0'],
-        ]);
+public function receive(PurchaseOrder $purchaseOrder, Request $request): JsonResponse
+{
+    $this->authorize('receive', $purchaseOrder);
 
+    $data = $request->validate([
+        'items'                     => ['required', 'array', 'min:1'],
+        'items.*.product_id'        => ['required', 'integer', 'exists:products,id'],
+        'items.*.quantity_received' => ['required', 'integer', 'min:1'], // Changed to min:1 to avoid empty hits
+    ]);
+
+    try {
         return response()->json(
             $this->service->receive($purchaseOrder, $data['items'], $request->user())
         );
+    } catch (\DomainException $e) {
+        return response()->json(['message' => $e->getMessage()], 422);
     }
+}
 }

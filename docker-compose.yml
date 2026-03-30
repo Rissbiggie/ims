@@ -26,11 +26,13 @@ services:
     ports:
       - "8000:80" # Host 8000 -> Container Nginx 80
     volumes:
-      - .:/var/www             # <--- ADD THIS: Maps all code changes instantly
+      - .:/var/www
+      - /var/www/node_modules        # Shield for modules
+      - /var/www/public/build        # <--- ADD THIS EXACT LINE (No dot/colon)
       - ./storage:/var/www/storage
       - ./database:/var/www/database
       - ./bootstrap/cache:/var/www/bootstrap/cache
-      - ./public/build:/var/www/public/build
+      
     networks:
       - ims-network
     depends_on:

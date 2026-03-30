@@ -27,13 +27,12 @@ export default function PurchaseOrdersPage() {
         suppliersApi.list(),
         productsApi.list(),
       ]);
+      // Accessing .data.data because of Laravel Pagination structure
       setOrders(ordersRes.data?.data || []);
       setSuppliers(suppliersRes.data?.data || []);
       setProducts(productsRes.data?.data || []);
     } catch (err) {
-      console.error(err);
-      setError('Failed to load data. Please check your connection.');
-      setOrders([]); setSuppliers([]); setProducts([]);
+      setError('Failed to load procurement data.');
     } finally {
       setLoading(false);
     }
@@ -51,42 +50,37 @@ export default function PurchaseOrdersPage() {
     setEditId(order.id);
     setFormData({
       supplier_id: order.supplier_id || '',
-      expected_delivery_date: order.expected_delivery_date || '',
+      expected_delivery_date: order.expected_delivery_date?.split('T')[0] || '',
       notes: order.notes || '',
     });
-    setItems((order.items || []).map(({ product_id, quantity_ordered, unit_price }) => ({ product_id, quantity_ordered, unit_price })));
+    setItems((order.items || []).map(({ product_id, quantity_ordered, unit_price }) => ({ 
+        product_id, 
+        quantity_ordered, 
+        unit_price 
+    })));
     setShowForm(true);
-    setError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!formData.supplier_id) { setError('Supplier is required.'); return; }
-    if (!items.length) { setError('Add at least one line item.'); return; }
-    for (const item of items) {
-      if (!item.product_id) { setError('All items need a product selected.'); return; }
-      if (!item.quantity_ordered || Number(item.quantity_ordered) <= 0) { setError('Quantity must be greater than 0.'); return; }
-      if (item.unit_price === '' || Number(item.unit_price) < 0) { setError('Unit price must be 0 or more.'); return; }
-    }
     const payload = {
       ...formData,
-      items: items.map(({ product_id, quantity_ordered, unit_price }) => ({
-        product_id,
-        quantity_ordered: Number(quantity_ordered),
-        unit_price: Number(unit_price),
+      items: items.map(item => ({
+        product_id: item.product_id,
+        quantity_ordered: Number(item.quantity_ordered),
+        unit_price: Number(item.unit_price),
       })),
     };
+
     try {
       if (editId) await purchaseOrdersApi.update(editId, payload);
       else await purchaseOrdersApi.create(payload);
       await fetchData();
       resetForm();
     } catch (err) {
-      console.error(err);
-      const backendErrors = err.response?.data?.errors;
-      setError(backendErrors ? Object.values(backendErrors).flat().join(', ') : 'Failed to save purchase order.');
+      setError(err.response?.data?.message || 'Failed to save order.');
     }
   };
 
@@ -94,13 +88,12 @@ export default function PurchaseOrdersPage() {
     setError('');
     try {
       if (action === 'submit') await purchaseOrdersApi.submit(id);
-      if (action === 'approve') await purchaseOrdersApi.approve(id);
-      if (action === 'reject') await purchaseOrdersApi.reject(id);
-      if (action === 'receive') await purchaseOrdersApi.receive(id);
-      await fetchData();
+      else if (action === 'approve') await purchaseOrdersApi.approve(id);
+      else if (action === 'reject') await purchaseOrdersApi.reject(id);
+      else if (action === 'receive') await purchaseOrdersApi.receive(id);
+      await fetchData(); 
     } catch (err) {
-      console.error(err);
-      setError(`Failed to ${action} purchase order.`);
+      setError(`Action Failed: Could not ${action} the order.`);
     }
   };
 
@@ -109,266 +102,179 @@ export default function PurchaseOrdersPage() {
     setItems([]);
     setEditId(null);
     setShowForm(false);
-    setError('');
   };
 
-  // Derived metrics
-  const totalValue = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-  const pendingCount = orders.filter(o => o.status === 'draft' || o.status === 'submitted').length;
-  const approvedCount = orders.filter(o => o.status === 'approved' || o.status === 'received').length;
+  // --- Real-time Metrics based on your JSON structure ---
+  const awaitingApprovalCount = orders.filter(o => o.status === 'pending_approval').length;
+  const approvedCount         = orders.filter(o => o.status === 'approved').length;
+  const totalValue            = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
 
   const statusStyles = {
-    draft:     'bg-gray-100 text-gray-600',
-    submitted: 'bg-blue-50 text-blue-700',
-    approved:  'bg-green-50 text-green-700',
-    received:  'bg-green-50 text-green-700',
-    rejected:  'bg-red-50 text-red-700',
+    draft:            'bg-gray-100 text-gray-500 border-gray-200',
+    pending_approval: 'bg-blue-50 text-blue-700 border-blue-100', 
+    approved:         'bg-emerald-50 text-emerald-700 border-emerald-100',
+    received:         'bg-indigo-50 text-indigo-700 border-indigo-100',
+    rejected:         'bg-red-50 text-red-700 border-red-100',
   };
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
-      <span className="font-mono text-sm tracking-widest text-gray-400 uppercase animate-pulse">
-        Loading orders...
-      </span>
+      <span className="font-mono text-xs tracking-widest text-gray-300 uppercase animate-pulse">Syncing_Records...</span>
     </div>
   );
 
   return (
-    <div
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10"
-      style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
-    >
-      {/* Google Fonts */}
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');`}</style>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');`}</style>
 
-      {/* Masthead */}
+      {/* Header */}
       <div className="flex justify-between items-end mb-8 pb-4 border-b-2 border-gray-900">
         <div>
-          <p className="font-mono text-xs tracking-widest text-gray-400 uppercase mb-1">Procurement</p>
-          <h1 className="font-mono text-2xl font-semibold tracking-tight text-gray-900">Purchase Orders</h1>
+          <p className="font-mono text-[10px] tracking-[0.2em] text-gray-400 uppercase mb-1">Kenya Operations</p>
+          <h1 className="font-mono text-2xl font-bold tracking-tighter text-gray-900 uppercase">Purchase_Orders</h1>
         </div>
         <button
           onClick={() => showForm ? resetForm() : setShowForm(true)}
-          className={`font-mono text-xs font-medium tracking-wide px-4 py-2 rounded transition-all ${
-            showForm
-              ? 'bg-transparent text-gray-700 border border-gray-300 hover:border-gray-500'
-              : 'bg-gray-900 text-white hover:bg-gray-700'
+          className={`font-mono text-[10px] font-bold tracking-widest px-4 py-2 rounded transition-all uppercase ${
+            showForm ? 'border border-gray-300 text-gray-400' : 'bg-gray-900 text-white'
           }`}
         >
-          {showForm ? '✕ Cancel' : '+ New Order'}
+          {showForm ? 'Cancel' : 'New_Purchase_Order'}
         </button>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {[
-          { label: 'Total Orders', value: orders.length, color: 'text-gray-900' },
-          { label: 'Pending', value: pendingCount, color: 'text-amber-700' },
-          { label: 'Approved', value: approvedCount, color: 'text-green-700' },
-          { label: 'Total Value', value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, color: 'text-blue-700' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="bg-gray-50 rounded-md px-4 py-3">
-            <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-            <p className={`font-mono text-xl font-semibold ${color}`}>{value}</p>
-          </div>
-        ))}
+      {/* Real-time Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-gray-50 p-5 border border-gray-100 rounded">
+          <p className="font-mono text-[9px] text-gray-400 uppercase tracking-widest mb-1">Awaiting Approval</p>
+          <p className="font-mono text-2xl font-bold text-blue-600">{awaitingApprovalCount}</p>
+        </div>
+        <div className="bg-gray-50 p-5 border border-gray-100 rounded">
+          <p className="font-mono text-[9px] text-gray-400 uppercase tracking-widest mb-1">Approved Orders</p>
+          <p className="font-mono text-2xl font-bold text-emerald-600">{approvedCount}</p>
+        </div>
+        <div className="bg-gray-50 p-5 border border-gray-100 rounded">
+          <p className="font-mono text-[9px] text-gray-400 uppercase tracking-widest mb-1">Total Pipeline (KSH)</p>
+          <p className="font-mono text-2xl font-bold text-gray-900">{totalValue.toLocaleString()}</p>
+        </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 font-mono text-xs px-4 py-3 rounded mb-5">
-          {error}
-        </div>
-      )}
+      {error && <div className="bg-red-50 border-l-4 border-red-500 text-red-700 font-mono text-[10px] p-4 mb-6 uppercase">{error}</div>}
 
-      {/* Form */}
+      {/* Form Section */}
       {showForm && (
-        <div className="bg-white border border-gray-200 rounded-md p-6 mb-8">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="inline-block w-2 h-2 rounded-full bg-gray-900" />
-            <h2 className="font-mono text-xs font-semibold tracking-widest text-gray-500 uppercase">
-              {editId ? 'Edit Purchase Order' : 'Create Purchase Order'}
-            </h2>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Supplier</label>
-                <select
-                  value={formData.supplier_id}
-                  onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                  className="text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900"
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-10 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <form onSubmit={handleSubmit} className="space-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="font-mono text-[10px] text-gray-400 uppercase font-bold">Supplier</label>
+                <select 
+                    value={formData.supplier_id} 
+                    onChange={(e) => setFormData({...formData, supplier_id: e.target.value})}
+                    className="text-sm border border-gray-200 p-2.5 rounded bg-gray-50 focus:bg-white outline-none transition-all"
                 >
-                  <option value="">Select Supplier</option>
+                  <option value="">Select Vendor...</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Expected Delivery</label>
-                <input
-                  type="date"
-                  value={formData.expected_delivery_date}
-                  onChange={(e) => setFormData({ ...formData, expected_delivery_date: e.target.value })}
-                  className="text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900"
+              <div className="flex flex-col gap-2">
+                <label className="font-mono text-[10px] text-gray-400 uppercase font-bold">Expected Date</label>
+                <input 
+                    type="date" 
+                    value={formData.expected_delivery_date}
+                    onChange={(e) => setFormData({...formData, expected_delivery_date: e.target.value})}
+                    className="text-sm border border-gray-200 p-2.5 rounded bg-gray-50 focus:bg-white outline-none transition-all" 
                 />
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Internal notes or delivery instructions..."
-                rows={2}
-                className="text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900 resize-y"
-              />
-            </div>
-
-            {/* Line Items */}
-            <div className="border-t border-gray-100 pt-4">
-              <div className="flex justify-between items-center mb-3">
-                <span className="font-mono text-xs text-gray-400 uppercase tracking-widest">Line Items</span>
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="font-mono text-xs px-3 py-1.5 border border-gray-300 text-gray-500 rounded hover:border-gray-500 hover:text-gray-800 transition-all"
-                >
-                  + Add Line
-                </button>
+            <div className="border-t border-gray-100 pt-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-mono text-[10px] font-bold uppercase text-gray-500 tracking-widest">Order_Lines (KSH)</h3>
+                <button type="button" onClick={handleAddItem} className="text-[10px] font-mono font-bold border border-gray-900 px-3 py-1 hover:bg-gray-900 hover:text-white transition-all">+ Add_Line</button>
               </div>
-
-              {items.length === 0 && (
-                <p className="font-mono text-xs text-gray-300 py-2">No items yet — click "+ Add Line" to begin.</p>
-              )}
-
+              
               {items.map((item, i) => (
-                <div key={i} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 mb-2 items-center">
-                  <select
-                    value={item.product_id}
+                <div key={i} className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto] gap-3 mb-3 items-center">
+                  <select 
+                    value={item.product_id} 
                     onChange={(e) => handleItemChange(i, 'product_id', e.target.value)}
-                    className="text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900"
+                    className="text-sm border border-gray-200 p-2 rounded focus:bg-white outline-none"
                   >
-                    <option value="">Select product</option>
-                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    <option value="">Select Product</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                   </select>
-                  <input
-                    type="number" min="1" placeholder="Qty"
-                    value={item.quantity_ordered}
-                    onChange={(e) => handleItemChange(i, 'quantity_ordered', e.target.value)}
-                    className="text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900"
-                  />
-                  <input
-                    type="number" min="0" step="0.01" placeholder="Unit $"
-                    value={item.unit_price}
-                    onChange={(e) => handleItemChange(i, 'unit_price', e.target.value)}
-                    className="text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(i)}
-                    className="text-red-400 hover:text-red-600 text-lg leading-none px-2 py-1"
-                  >
-                    ✕
-                  </button>
+                  <input type="number" placeholder="Qty" value={item.quantity_ordered} onChange={(e) => handleItemChange(i, 'quantity_ordered', e.target.value)} className="text-sm border border-gray-200 p-2 rounded outline-none" />
+                  <input type="number" placeholder="Price" value={item.unit_price} onChange={(e) => handleItemChange(i, 'unit_price', e.target.value)} className="text-sm border border-gray-200 p-2 rounded outline-none" />
+                  <button type="button" onClick={() => handleRemoveItem(i)} className="text-red-400 font-mono font-bold px-2 hover:text-red-600 transition-colors">✕</button>
                 </div>
               ))}
             </div>
 
-            <div className="flex gap-3 pt-2 border-t border-gray-100">
-              <button
-                type="submit"
-                className="font-mono text-xs font-medium px-5 py-2.5 bg-gray-900 text-white rounded hover:bg-gray-700 transition-all"
-              >
-                {editId ? 'Update Order' : 'Create Order'}
-              </button>
-              <button
-                type="button"
-                onClick={resetForm}
-                className="font-mono text-xs px-5 py-2.5 border border-gray-300 text-gray-600 rounded hover:border-gray-500 transition-all"
-              >
-                Discard
-              </button>
+            <div className="flex gap-4 pt-4 border-t border-gray-100">
+              <button type="submit" className="bg-gray-900 text-white font-mono text-[10px] font-bold px-8 py-3 rounded uppercase tracking-widest hover:opacity-90 transition-opacity">Commit_Purchase</button>
+              <button type="button" onClick={resetForm} className="font-mono text-[10px] text-gray-400 uppercase tracking-widest px-4">Discard</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-        <table className="w-full text-sm border-collapse">
-          <thead className="bg-gray-50">
+      {/* List Table */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {['Order #', 'Supplier', 'Status', 'Items', 'Total', 'Actions'].map(h => (
-                <th key={h} className="px-4 py-3 text-left font-mono text-xs text-gray-400 uppercase tracking-widest border-b border-gray-200">
-                  {h}
-                </th>
+              {['Ref #', 'Supplier', 'Status', 'Total (KSH)', 'Controls'].map(h => (
+                <th key={h} className="px-6 py-4 text-left font-mono text-[10px] uppercase tracking-widest text-gray-400 font-bold">{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody>
-            {orders.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-10 font-mono text-xs text-gray-300 uppercase tracking-widest">
-                  No purchase orders on record.
+          <tbody className="divide-y divide-gray-100">
+            {orders.map(order => (
+              <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-6 py-5 font-mono text-xs font-bold text-gray-900">{order.order_number}</td>
+                <td className="px-6 py-5">
+                  <span className="block font-semibold text-gray-800">{order.supplier?.name}</span>
+                  <span className="text-[10px] font-mono text-gray-400">ID: {order.id}</span>
                 </td>
-              </tr>
-            ) : orders.map(order => (
-              <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3">
-                  <span className="font-mono text-xs font-medium text-gray-900">
-                    {order.order_number || `PO-${order.id}`}
+                <td className="px-6 py-5">
+                  <span className={`px-2 py-1 rounded-[4px] border font-mono text-[9px] font-bold uppercase tracking-tighter ${statusStyles[order.status]}`}>
+                    {order.status === 'pending_approval' ? 'Pending Approval' : order.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-500 text-sm">{order.supplier?.name || '—'}</td>
-                <td className="px-4 py-3">
-                  <span className={`font-mono text-xs font-medium px-2 py-1 rounded uppercase tracking-wide ${statusStyles[order.status] || 'bg-gray-100 text-gray-500'}`}>
-                    {order.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-400">
-                  {(order.items || []).length} line{(order.items || []).length !== 1 ? 's' : ''}
-                </td>
-                <td className="px-4 py-3 font-mono text-sm font-medium text-gray-900">
-                  ${Number(order.total_amount || 0).toFixed(2)}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1.5 flex-wrap items-center">
-                    <button onClick={() => handleEdit(order)}
-                      className="font-mono text-xs px-2.5 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">
-                      Edit
-                    </button>
-                    {order.status === 'draft' && <>
-                      <button onClick={() => handleAction(order.id, 'submit')}
-                        className="font-mono text-xs px-2.5 py-1 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition-all">
-                        Submit
-                      </button>
-                      <button onClick={() => handleAction(order.id, 'reject')}
-                        className="font-mono text-xs px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all">
-                        Reject
-                      </button>
-                    </>}
-                    {order.status === 'submitted' && <>
-                      <button onClick={() => handleAction(order.id, 'approve')}
-                        className="font-mono text-xs px-2.5 py-1 rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition-all">
-                        Approve
-                      </button>
-                      <button onClick={() => handleAction(order.id, 'reject')}
-                        className="font-mono text-xs px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all">
-                        Reject
-                      </button>
-                    </>}
+                <td className="px-6 py-5 font-mono text-sm font-bold text-gray-900">{Number(order.total_amount).toLocaleString()}</td>
+                <td className="px-6 py-5">
+                  <div className="flex gap-2">
+                    
+                    {/* BUTTON LOGIC: Strictly uses 'pending_approval' based on your JSON */}
+                    {order.status === 'pending_approval' && (
+                      <>
+                        <button onClick={() => handleAction(order.id, 'approve')} className="text-[9px] font-mono font-bold bg-emerald-600 text-white px-3 py-1.5 rounded uppercase hover:bg-emerald-700 transition-colors">Approve</button>
+                        <button onClick={() => handleAction(order.id, 'reject')} className="text-[9px] font-mono font-bold bg-red-600 text-white px-3 py-1.5 rounded uppercase hover:bg-red-700 transition-colors">Reject</button>
+                      </>
+                    )}
+
+                    {/* Only show Edit/Submit if Draft or Rejected */}
+                    {(order.status === 'draft' || order.status === 'rejected') && (
+                      <>
+                        <button onClick={() => handleEdit(order)} className="text-[9px] font-mono font-bold border border-gray-300 px-3 py-1.5 rounded uppercase hover:bg-gray-900 hover:text-white transition-all">Edit</button>
+                        <button onClick={() => handleAction(order.id, 'submit')} className="text-[9px] font-mono font-bold bg-blue-600 text-white px-3 py-1.5 rounded uppercase hover:bg-blue-700 transition-colors">Submit</button>
+                      </>
+                    )}
+
+                    {/* Only show Receive if Approved */}
                     {order.status === 'approved' && (
-                      <button onClick={() => handleAction(order.id, 'receive')}
-                        className="font-mono text-xs px-2.5 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">
-                        Receive
-                      </button>
+                      <button onClick={() => handleAction(order.id, 'receive')} className="text-[9px] font-mono font-bold bg-indigo-600 text-white px-4 py-1.5 rounded uppercase hover:bg-indigo-700 transition-colors">Receive_Goods</button>
                     )}
                   </div>
                 </td>
               </tr>
             ))}
+            {orders.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-10 text-center font-mono text-xs text-gray-300 uppercase tracking-widest">No procurement records found.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

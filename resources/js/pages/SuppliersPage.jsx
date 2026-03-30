@@ -7,8 +7,10 @@ export default function SuppliersPage() {
   const [error, setError]         = useState('');
   const [showForm, setShowForm]   = useState(false);
   const [editId, setEditId]       = useState(null);
+  
+  // Updated formData to match your API fields (contact_person, status, etc.)
   const [formData, setFormData]   = useState({
-    name: '', email: '', phone: '', address: '', city: '', country: '',
+    name: '', email: '', phone: '', address: '', contact_person: '', status: 'active'
   });
 
   useEffect(() => { fetchSuppliers(); }, []);
@@ -16,6 +18,7 @@ export default function SuppliersPage() {
   const fetchSuppliers = async () => {
     try {
       const { data } = await suppliersApi.list();
+      // Data is nested under data.data based on your JSON response
       setSuppliers(data.data || []);
     } catch (err) {
       setError('Failed to load suppliers.');
@@ -49,14 +52,21 @@ export default function SuppliersPage() {
   };
 
   const handleEdit = (supplier) => {
-    setFormData(supplier);
+    setFormData({
+      name: supplier.name || '',
+      email: supplier.email || '',
+      phone: supplier.phone || '',
+      address: supplier.address || '',
+      contact_person: supplier.contact_person || '',
+      status: supplier.status || 'active'
+    });
     setEditId(supplier.id);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', phone: '', address: '', city: '', country: '' });
+    setFormData({ name: '', email: '', phone: '', address: '', contact_person: '', status: 'active' });
     setEditId(null);
     setShowForm(false);
     setError('');
@@ -66,16 +76,11 @@ export default function SuppliersPage() {
 
   const fieldCls = "text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-gray-500 text-gray-900";
 
-  const Th = ({ children }) => (
-    <th className="px-4 py-3 text-left font-mono text-xs tracking-widest uppercase text-gray-400 border-b border-gray-200">
+  const Th = ({ children, right }) => (
+    <th className={`px-4 py-3 font-mono text-xs tracking-widest uppercase text-gray-400 border-b border-gray-200 ${right ? 'text-right' : 'text-left'}`}>
       {children}
     </th>
   );
-
-  // Derived metrics
-  const withEmail   = suppliers.filter(s => s.email).length;
-  const cities      = new Set(suppliers.map(s => s.city).filter(Boolean)).size;
-  const countries   = new Set(suppliers.map(s => s.country).filter(Boolean)).size;
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -88,7 +93,7 @@ export default function SuppliersPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10"
          style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');`}</style>
 
       {/* Masthead */}
       <div className="flex justify-between items-end mb-8 pb-4 border-b-2 border-gray-900">
@@ -108,13 +113,11 @@ export default function SuppliersPage() {
         </button>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      {/* Metrics - Simplified to match requested focus */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
         {[
           { label: 'Total Suppliers', value: suppliers.length,  color: 'text-gray-900'  },
-          { label: 'With Email',      value: withEmail,         color: 'text-blue-700'  },
-          { label: 'Cities',          value: cities,            color: 'text-amber-700' },
-          { label: 'Countries',       value: countries,         color: 'text-green-700' },
+          { label: 'Total Catalog Products', value: suppliers.reduce((acc, s) => acc + (s.products_count || 0), 0), color: 'text-blue-700'  },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-gray-50 rounded-md px-4 py-3">
             <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-1">{label}</p>
@@ -123,7 +126,6 @@ export default function SuppliersPage() {
         ))}
       </div>
 
-      {/* Error */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 font-mono text-xs px-4 py-3 rounded mb-6">
           {error}
@@ -132,53 +134,48 @@ export default function SuppliersPage() {
 
       {/* Form */}
       {showForm && (
-        <div className="bg-white border border-gray-200 rounded-md p-6 mb-8">
+        <div className="bg-white border border-gray-200 rounded-md p-6 mb-8 shadow-sm">
           <div className="flex items-center gap-2 mb-5">
             <span className="inline-block w-2 h-2 rounded-full bg-gray-900" />
             <h2 className="font-mono text-xs font-semibold tracking-widest text-gray-500 uppercase">
-              {editId ? 'Edit Supplier' : 'Add Supplier'}
+              {editId ? 'Edit Supplier Record' : 'New Supplier Registry'}
             </h2>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Supplier Name *</label>
+                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Company Name *</label>
                 <input type="text" required value={formData.name} onChange={set('name')}
-                       placeholder="e.g. Acme Supplies Co." className={fieldCls} />
+                       placeholder="e.g. Nairobi Tech Supplies" className={fieldCls} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Email</label>
+                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Contact Person</label>
+                <input type="text" value={formData.contact_person} onChange={set('contact_person')}
+                       placeholder="e.g. James Mwangi" className={fieldCls} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Email Address</label>
                 <input type="email" value={formData.email} onChange={set('email')}
-                       placeholder="contact@supplier.com" className={fieldCls} />
+                       placeholder="orders@nairobtech.co.ke" className={fieldCls} />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Phone</label>
+                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Phone Number</label>
                 <input type="tel" value={formData.phone} onChange={set('phone')}
-                       placeholder="+1 (555) 000-0000" className={fieldCls} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">City</label>
-                <input type="text" value={formData.city} onChange={set('city')}
-                       placeholder="e.g. Nairobi" className={fieldCls} />
-              </div>
-              <div className="flex flex-col gap-1 md:col-span-2 md:w-1/2">
-                <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Country</label>
-                <input type="text" value={formData.country} onChange={set('country')}
-                       placeholder="e.g. Kenya" className={fieldCls} />
+                       placeholder="+254..." className={fieldCls} />
               </div>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Address</label>
+              <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Physical Address</label>
               <textarea value={formData.address} onChange={set('address')} rows={2}
-                        placeholder="Street address..." className={`${fieldCls} resize-y`} />
+                        placeholder="Building, Street, Area..." className={`${fieldCls} resize-y`} />
             </div>
 
             <div className="flex gap-3 pt-2 border-t border-gray-100">
               <button type="submit"
                       className="font-mono text-xs font-medium px-5 py-2.5 bg-gray-900 text-white rounded hover:bg-gray-700 transition-all">
-                {editId ? 'Update Supplier' : 'Create Supplier'}
+                {editId ? 'Save Changes' : 'Register Supplier'}
               </button>
               <button type="button" onClick={resetForm}
                       className="font-mono text-xs px-5 py-2.5 border border-gray-300 text-gray-600 rounded hover:border-gray-500 transition-all">
@@ -194,54 +191,57 @@ export default function SuppliersPage() {
         <table className="w-full border-collapse text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <Th>Supplier</Th>
-              <Th>Email</Th>
-              <Th>Phone</Th>
-              <Th>City</Th>
-              <Th>Country</Th>
+              <Th>Supplier Name</Th>
+              <Th>Contact Person</Th>
+              <Th>Email & Phone</Th>
+              <Th right>Products</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
           <tbody>
             {suppliers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-10 font-mono text-xs text-gray-300 uppercase tracking-widest">
-                  No suppliers on record.
+                <td colSpan={5} className="text-center py-10 font-mono text-xs text-gray-300 uppercase tracking-widest">
+                  No suppliers found in database.
                 </td>
               </tr>
             ) : suppliers.map((supplier) => (
               <tr key={supplier.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded bg-gray-100 flex items-center justify-center font-mono text-xs font-medium text-gray-500 flex-shrink-0">
+                <td className="px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-gray-900 flex items-center justify-center font-mono text-xs font-medium text-white flex-shrink-0">
                       {(supplier.name || '?')[0].toUpperCase()}
                     </div>
-                    <span className="font-medium text-gray-900 text-sm">{supplier.name}</span>
+                    <div>
+                      <span className="block font-semibold text-gray-900 text-sm leading-tight">{supplier.name}</span>
+                      <span className="text-[10px] font-mono uppercase text-gray-400 tracking-tighter">ID: {String(supplier.id).padStart(3, '0')}</span>
+                    </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {supplier.email
-                    ? <a href={`mailto:${supplier.email}`} className="hover:text-gray-900 transition-colors">{supplier.email}</a>
-                    : <span className="text-gray-300">—</span>}
+                <td className="px-4 py-4 text-gray-600">
+                  {supplier.contact_person || <span className="text-gray-300 italic text-xs">Not specified</span>}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                  {supplier.phone || <span className="text-gray-300 font-sans">—</span>}
+                <td className="px-4 py-4">
+                  <div className="flex flex-col">
+                    <span className="text-gray-600 text-xs">{supplier.email || 'No email'}</span>
+                    <span className="font-mono text-[10px] text-gray-400">{supplier.phone || 'No phone'}</span>
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {supplier.city || <span className="text-gray-300">—</span>}
+                <td className="px-4 py-4 text-right">
+                  <span className="font-mono text-sm font-semibold bg-gray-100 px-2 py-1 rounded text-gray-700">
+                    {supplier.products_count || 0}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {supplier.country || <span className="text-gray-300">—</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1.5 items-center">
+               
+                <td className="px-4 py-4">
+                  <div className="flex gap-2 items-center">
                     <button onClick={() => handleEdit(supplier)}
-                      className="font-mono text-xs px-2.5 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">
+                      className="font-mono text-[10px] uppercase tracking-tighter font-bold px-2 py-1 rounded border border-gray-200 hover:bg-gray-900 hover:text-white hover:border-gray-900 transition-all">
                       Edit
                     </button>
                     <button onClick={() => handleDelete(supplier.id)}
-                      className="font-mono text-xs px-2.5 py-1 rounded border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all">
-                      Delete
+                      className="font-mono text-[10px] uppercase tracking-tighter font-bold px-2 py-1 rounded border border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all">
+                      Del
                     </button>
                   </div>
                 </td>
