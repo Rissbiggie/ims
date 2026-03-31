@@ -57,16 +57,23 @@ class RequisitionService
         return $req;
     }
 
-    /**
-     * Approve a pending requisition (with optional quantity adjustments).
+/**
+     * Approve a pending requisition.
+     * Logic: If specific quantities aren't provided, it defaults to the requested amount.
      */
     public function approve(Requisition $req, User $approver, array $approvedQuantities = []): Requisition
     {
-        abort_if(!$req->canBeApproved(), 422, 'This requisition is not in a submittable state.');
+        // Validation: Ensure it's currently 'pending'
+        abort_if($req->status !== Requisition::STATUS_PENDING, 422, 'Only pending requisitions can be approved.');
 
         return DB::transaction(function () use ($req, $approver, $approvedQuantities) {
-            foreach ($approvedQuantities as $itemId => $qty) {
-                $req->items()->where('id', $itemId)->update(['quantity_approved' => $qty]);
+            foreach ($req->items as $item) {
+                // Use the override if provided, otherwise default to what was requested
+                $qty = isset($approvedQuantities[$item->id]) 
+                    ? (int) $approvedQuantities[$item->id] 
+                    : $item->quantity_requested;
+
+                $item->update(['quantity_approved' => $qty]);
             }
 
             $req->update([
@@ -76,9 +83,35 @@ class RequisitionService
             ]);
 
             AuditLog::record('requisition.approved', $approver->id, Requisition::class, $req->id);
-            $req->requestedBy->notify(new RequisitionApproved($req));
+            
+            // Notify the user who made the request
+         //   $req->requestedBy->notify(new RequisitionApproved($req));
 
-            return $req->fresh(['items.product']);
+            return $req->load(['items.product', 'approvedBy']);
+        });
+    }
+
+    /**
+     * Reject a pending requisition.
+     */
+    public function reject(Requisition $req, User $rejector, string $reason): Requisition
+    {
+        abort_if($req->status !== Requisition::STATUS_PENDING, 422, 'Only pending requisitions can be rejected.');
+
+        return DB::transaction(function () use ($req, $rejector, $reason) {
+            $req->update([
+                'status'           => Requisition::STATUS_REJECTED,
+                'rejection_reason' => $reason,
+                // If you have a 'rejected_by' column, add it here:
+                // 'approved_by'   => $rejector->id, 
+            ]);
+
+            AuditLog::record('requisition.rejected', $rejector->id, Requisition::class, $req->id);
+            
+            // Notify the user of the rejection and the reason
+            // $req->requestedBy->notify(new RequisitionRejected($req, $reason));
+
+            return $req->load('requestedBy');
         });
     }
 

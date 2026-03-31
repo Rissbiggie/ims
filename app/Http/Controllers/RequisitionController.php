@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreRequisitionRequest;
 use App\Models\Requisition;
 use App\Services\RequisitionService;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -55,7 +56,9 @@ class RequisitionController extends Controller
             $this->service->submit($requisition, $request->user())
         );
     }
-
+/**
+     * POST /api/requisitions/{requisition}/approve
+     */
     public function approve(Requisition $requisition, Request $request): JsonResponse
     {
         $this->authorize('approve', $requisition);
@@ -65,10 +68,41 @@ class RequisitionController extends Controller
             'approved_quantities.*' => ['integer', 'min:0'],
         ]);
 
-        return response()->json(
-            $this->service->approve($requisition, $request->user(), $data['approved_quantities'] ?? [])
+        $updated = $this->service->approve(
+            $requisition, 
+            $request->user(), 
+            $data['approved_quantities'] ?? []
         );
+
+        return response()->json([
+            'message' => 'Requisition approved successfully.',
+            'data'    => $updated
+        ]);
     }
+
+    /**
+     * POST /api/requisitions/{requisition}/reject
+     */
+    public function reject(Requisition $requisition, Request $request): JsonResponse
+    {
+        $this->authorize('reject', $requisition);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $updated = $this->service->reject(
+            $requisition, 
+            $request->user(), 
+            $data['reason']
+        );
+
+        return response()->json([
+            'message' => 'Requisition has been rejected.',
+            'data'    => $updated
+        ]);
+    }
+
 
     public function issue(Requisition $requisition, Request $request): JsonResponse
     {
@@ -80,8 +114,14 @@ class RequisitionController extends Controller
             'items.*.quantity_issued'  => ['required', 'integer', 'min:0'],
         ]);
 
-        return response()->json(
-            $this->service->issue($requisition, $data['items'], $request->user())
-        );
+        try {
+            return response()->json(
+                $this->service->issue($requisition, $data['items'], $request->user())
+            );
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => 'Insufficient stock. Please restock before issuing this requisition.',
+            ], 422);
+        }
     }
 }

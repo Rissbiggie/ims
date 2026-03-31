@@ -22,7 +22,7 @@ enum UserRole: string
         return match($this) {
           self::Admin => [
             'users.manage', 'products.manage', 'categories.manage',
-           'suppliers.manage', 'stock.manage',
+           'suppliers.manage', 'stock.manage', 'stock.record',
            'purchase_orders.manage', 'purchase_orders.create', 'purchase_orders.approve', 
            'requisitions.manage', 'requisitions.approve','requisitions.create',
            'reports.view', 'audit_logs.view', 'settings.manage','products.view', 'products.create', 'products.edit', 'purchase_orders.reject','purchase_orders.receive',

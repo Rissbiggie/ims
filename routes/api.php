@@ -13,6 +13,10 @@ use Illuminate\Support\Facades\Route;
 use Termwind\Components\Raw;
 
 // ─── Public Auth Routes ───────────────────────────────────────────────────────
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
+
 Route::post('/login', [AuthController::class, 'login']);
 
 // ─── Authenticated Routes ─────────────────────────────────────────────────────
@@ -66,20 +70,27 @@ Route::prefix('purchase-orders/{purchaseOrder}')->group(function () {
         Route::post('reject',  [PurchaseOrderController::class, 'reject']);  
     });
 });
-    // ── Requisitions ──────────────────────────────────────────────────────────
-   Route::middleware('auth:sanctum')->group(function () {
+ // ── Requisitions ──────────────────────────────────────────────────────────
+Route::prefix('requisitions')->group(function () {
     
-    // Standard CRUD
-    Route::get('/requisitions', [RequisitionController::class, 'index']);
-    Route::post('/requisitions', [RequisitionController::class, 'store']);
-    Route::get('/requisitions/{requisition}', [RequisitionController::class, 'show']);
+    // 1. Common Actions (Staff, Clerks, Managers)
+    // Everyone can view their own/assigned and create new ones
+    Route::get('/',           [RequisitionController::class, 'index']);
+    Route::post('/',          [RequisitionController::class, 'store']);
+    Route::get('/{requisition}', [RequisitionController::class, 'show']);
+    Route::patch('/{requisition}/submit', [RequisitionController::class, 'submit']);
 
-    // Workflow Actions
-    Route::patch('/requisitions/{requisition}/submit', [RequisitionController::class, 'submit']);
-    Route::post('/requisitions/{requisition}/approve', [RequisitionController::class, 'approve']);
-    Route::post('/requisitions/{requisition}/issue',   [RequisitionController::class, 'issue']);
-    Route::post('/requisitions/{requisition}/reject',  [RequisitionController::class, 'reject']);
+    // 2. Approval Actions (Managers & Admins only)
+    Route::middleware('role:admin,manager')->group(function () {
+        Route::post('/{requisition}/approve', [RequisitionController::class, 'approve']);
+        Route::post('/{requisition}/reject',  [RequisitionController::class, 'reject']);
+    });
 
+    // 3. Issuance Actions (Store Clerks & Admins only)
+    // This protects your physical inventory from unauthorized deductions
+    Route::middleware('role:admin,store_clerk')->group(function () {
+        Route::post('/{requisition}/issue', [RequisitionController::class, 'issue']);
+    });
 });
 
     // ── Reports (admin & manager only) ────────────────────────────────────────

@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // ─── Categories ───────────────────────────────────────────────────────
-        $categories = collect([
+       /* $categories = collect([
             ['name' => 'Electronics',    'description' => 'Electronic devices and accessories'],
             ['name' => 'Stationery',     'description' => 'Office and school stationery'],
             ['name' => 'Cleaning Supplies','description'=> 'Cleaning and hygiene products'],
@@ -95,7 +95,7 @@ class DatabaseSeeder extends Seeder
             $product = Product::create($productData);
             // Update the auto-created stock record with opening quantity
             $product->stock()->update(['quantity_on_hand' => $openingStocks[$i]]);
-        }
+        }*/
 
         $this->command->info('✅ Database seeded successfully!');
         $this->command->table(

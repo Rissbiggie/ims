@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('unit_of_measure')->default('piece'); // piece, kg, litre, box, etc.
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->decimal('selling_price', 12, 2)->default(0);
+            $table->integer('quantity_on_hand')->default(0);
             $table->integer('reorder_level')->default(10);
             $table->integer('reorder_quantity')->default(50);
             $table->integer('minimum_stock')->default(5);

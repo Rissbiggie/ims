@@ -25,13 +25,17 @@ class RequisitionPolicy
 
     public function approve(User $user, Requisition $req): bool
     {
-        return $user->role->can('requisitions.approve')
-            && $req->requested_by !== $user->id;
+        return $user->role->can('requisitions.approve');
+    }
+
+    public function reject(User $user, Requisition $req): bool
+    {
+        return $user->role->can('requisitions.approve');
     }
 
     public function issue(User $user, Requisition $req): bool
     {
-        return $user->role->can('stock.record')
+        return ($user->role->can('stock.record') || $user->role->can('stock.manage'))
             && $req->status === 'approved';
     }
 }
