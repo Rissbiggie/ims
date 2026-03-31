@@ -127,7 +127,7 @@ export default function RequisitionsPage() {
       <div className="flex justify-between items-end mb-12">
         <div className="border-l-4 border-black pl-6">
           <h1 className="font-mono text-4xl font-bold tracking-tighter text-gray-900">REQUISITIONS</h1>
-          <p className="text-gray-400 text-[10px] font-mono uppercase tracking-[0.2em] mt-1">UrbanLink_Inventory_Control</p>
+         
         </div>
         <button
           onClick={() => showForm ? resetForm() : setShowForm(true)}

@@ -130,7 +130,6 @@ export default function PurchaseOrdersPage() {
       {/* Header */}
       <div className="flex justify-between items-end mb-8 pb-4 border-b-2 border-gray-900">
         <div>
-          <p className="font-mono text-[10px] tracking-[0.2em] text-gray-400 uppercase mb-1">Kenya Operations</p>
           <h1 className="font-mono text-2xl font-bold tracking-tighter text-gray-900 uppercase">Purchase_Orders</h1>
         </div>
         <button
