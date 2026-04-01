@@ -6,12 +6,20 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState('');
+  
+  // Forms State
   const [showForm, setShowForm]     = useState(false);
+  const [showAdjust, setShowAdjust] = useState(false);
   const [editId, setEditId]         = useState(null);
+  
   const [formData, setFormData]     = useState({
     name: '', category_id: '', unit_of_measure: '', unit_price: '',
     selling_price: '', reorder_level: '', reorder_quantity: '',
     minimum_stock: '', maximum_stock: '', description: '',
+  });
+
+  const [adjustData, setAdjustData] = useState({
+    id: null, name: '', new_quantity: '', reason: ''
   });
 
   useEffect(() => { fetchData(); }, []);
@@ -69,6 +77,23 @@ export default function ProductsPage() {
     }
   };
 
+  const handleAdjustStock = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await productsApi.adjustStock(adjustData.id, {
+        new_quantity: Number(adjustData.new_quantity),
+        reason: adjustData.reason
+      });
+      await fetchData();
+      setShowAdjust(false);
+      setAdjustData({ id: null, name: '', new_quantity: '', reason: '' });
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || 'Failed to adjust stock.');
+    }
+  };
+
   const handleEdit = (product) => {
     setFormData({
       name:             product.name             || '',
@@ -84,6 +109,7 @@ export default function ProductsPage() {
     });
     setEditId(product.id);
     setShowForm(true);
+    setShowAdjust(false);
     setError('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -125,14 +151,14 @@ export default function ProductsPage() {
     </td>
   );
 
-  // Derived metrics
+  // Metrics
   const avgPrice   = products.length
     ? (products.reduce((s, p) => s + Number(p.selling_price || 0), 0) / products.length).toFixed(2)
     : '0.00';
   const lowStock   = products.filter(p => Number(p.reorder_level || 0) > 0).length;
   const catCount   = new Set(products.map(p => p.category_id).filter(Boolean)).size;
 
-  if (loading && !showForm) return (
+  if (loading && !showForm && !showAdjust) return (
     <div className="flex items-center justify-center min-h-screen">
       <span className="font-mono text-xs tracking-widest text-gray-300 uppercase animate-pulse">
         Loading products...
@@ -152,7 +178,10 @@ export default function ProductsPage() {
           <h1 className="font-mono text-2xl font-semibold tracking-tight text-gray-900">Products</h1>
         </div>
         <button
-          onClick={() => showForm ? resetForm() : setShowForm(true)}
+          onClick={() => {
+            if(showForm) resetForm();
+            else { setShowForm(true); setShowAdjust(false); }
+          }}
           className={`font-mono text-xs font-medium tracking-wide px-4 py-2 rounded transition-all ${
             showForm
               ? 'bg-transparent text-gray-700 border border-gray-300 hover:border-gray-500'
@@ -178,14 +207,50 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {/* Error */}
+      {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 font-mono text-xs px-4 py-3 rounded mb-6">
           {error}
         </div>
       )}
 
-      {/* Form */}
+      {/* Adjust Stock Form (New) */}
+      {showAdjust && (
+        <div className="bg-white border-2 border-amber-200 rounded-md p-6 mb-8 shadow-sm">
+          <div className="flex justify-between items-center mb-5">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+              <h2 className="font-mono text-xs font-semibold tracking-widest text-gray-500 uppercase">
+                Stock Adjustment: {adjustData.name}
+              </h2>
+            </div>
+            <button onClick={() => setShowAdjust(false)} className="text-gray-400 hover:text-gray-900">✕</button>
+          </div>
+
+          <form onSubmit={handleAdjustStock} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="flex flex-col gap-1">
+              <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Target Quantity</label>
+              <input type="number" required min="0" value={adjustData.new_quantity} 
+                     onChange={(e) => setAdjustData({...adjustData, new_quantity: e.target.value})} className={fCls} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-mono text-xs text-gray-400 uppercase tracking-widest">Adjustment Reason</label>
+              <input type="text" required placeholder="e.g. Initial stock or audit" value={adjustData.reason} 
+                     onChange={(e) => setAdjustData({...adjustData, reason: e.target.value})} className={fCls} />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="font-mono text-xs font-medium px-5 py-2.5 bg-amber-600 text-white rounded hover:bg-amber-700 w-full transition-all">
+                Confirm Update
+              </button>
+              <button type="button" onClick={() => setShowAdjust(false)} className="font-mono text-xs px-5 py-2.5 border border-gray-300 text-gray-500 rounded hover:border-gray-500 transition-all">
+                Close
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Main Product Form */}
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-md p-6 mb-8">
           <div className="flex items-center gap-2 mb-5">
@@ -196,7 +261,6 @@ export default function ProductsPage() {
           </div>
 
           <form onSubmit={handleSubmit}>
-            {/* Section: Identity */}
             <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3">Identity</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="flex flex-col gap-1">
@@ -221,7 +285,6 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {/* Section: Pricing */}
             <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3 pt-4 border-t border-gray-100">Pricing</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="flex flex-col gap-1">
@@ -234,7 +297,6 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            {/* Section: Stock Thresholds */}
             <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-3 pt-4 border-t border-gray-100">Stock Thresholds</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {[
@@ -306,6 +368,15 @@ export default function ProductsPage() {
                 <Td mono right className="text-amber-700">{product.reorder_level ?? <span className="text-gray-300">—</span>}</Td>
                 <Td>
                   <div className="flex gap-1.5 items-center">
+                    <button onClick={() => {
+                      setAdjustData({ id: product.id, name: product.name, new_quantity: '', reason: '' });
+                      setShowAdjust(true);
+                      setShowForm(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                      className="font-mono text-xs px-2.5 py-1 rounded border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-all">
+                      Adjust
+                    </button>
                     <button onClick={() => handleEdit(product)}
                       className="font-mono text-xs px-2.5 py-1 rounded border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">
                       Edit
