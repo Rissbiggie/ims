@@ -10,7 +10,6 @@ export default function DashboardPage() {
     const fetchStats = async () => {
       try {
         const { data } = await dashboardApi.getStats();
-        // Handle Laravel data wrapper if present
         setStats(data.data || data);
       } catch (err) {
         setError('Failed to sync with IMS server.');
@@ -21,14 +20,15 @@ export default function DashboardPage() {
     fetchStats();
   }, []);
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-white">
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-        <span className="font-mono text-[10px] tracking-widest text-gray-400 uppercase">Synchronizing...</span>
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+          <span className="font-mono text-[10px] tracking-widest text-gray-400 uppercase">Synchronizing...</span>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   const CARDS = [
     { label: 'Total Products', value: stats?.total_products, sub: 'Active SKUs', color: 'text-gray-900' },
@@ -41,11 +41,10 @@ export default function DashboardPage() {
     <div className="max-w-7xl mx-auto px-6 py-10 selection:bg-gray-900 selection:text-white" style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');`}</style>
 
-      {/* Header */}
       <div className="flex justify-between items-end mb-10 pb-6 border-b-2 border-gray-900">
         <div>
-          {/* <h1 className="font-mono text-2xl font-bold tracking-tighter uppercase italic">IMS Dashboard</h1> */}
-         { /* <p className="text-xs text-gray-500 font-medium">System Status: <span className="text-green-600 uppercase">Operational</span></p> */ }
+          <h1 className="font-mono text-2xl font-bold tracking-tighter uppercase italic">IMS Dashboard</h1>
+          <p className="text-xs text-gray-500 font-medium">System Status: <span className="text-green-600 uppercase">Operational</span></p>
         </div>
         <div className="text-right">
           <p className="font-mono text-xs text-gray-400 uppercase tracking-widest">Inventory Value</p>
@@ -55,7 +54,6 @@ export default function DashboardPage() {
 
       {error && <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-600 font-mono text-xs text-red-700 uppercase">{error}</div>}
 
-      {/* Top Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {CARDS.map((card) => (
           <div key={card.label} className="bg-gray-50 p-6 border border-gray-100 transition-all hover:border-gray-300">
@@ -67,7 +65,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent Activity */}
         <div className="border border-gray-900">
           <div className="bg-gray-900 text-white px-4 py-2 flex justify-between items-center">
             <h2 className="font-mono text-[10px] uppercase tracking-widest font-bold">Recent Transactions</h2>
@@ -94,12 +91,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Critical Alerts */}
         <div className="border border-red-600">
           <div className="bg-red-600 text-white px-4 py-2 flex justify-between items-center">
             <h2 className="font-mono text-[10px] uppercase tracking-widest font-bold">Stock Alerts</h2>
             <div className="flex gap-1">
-               <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+              <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
             </div>
           </div>
           <div className="p-2">

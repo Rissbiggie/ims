@@ -1,5 +1,7 @@
 import client from './client';
 
+export { default as apiClient } from './client';
+
 export const authApi = {
   login: (email, password) => client.post('/login', { email, password }),
   logout: () => client.post('/logout'),

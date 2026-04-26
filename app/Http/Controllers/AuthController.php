@@ -41,9 +41,18 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
+        // Determine dashboard route based on user role
+        $dashboardRoute = match($user->role->value) {
+            'admin' => '/admin-dashboard',
+            'manager' => '/manager-dashboard',
+            'store_clerk' => '/clerk-dashboard',
+            default => '/dashboard',
+        };
+
         return response()->json([
             'user'  => $user->only('id', 'name', 'email', 'role'),
             'token' => $token,
+            'dashboard_route' => $dashboardRoute,
         ]);
     }
 

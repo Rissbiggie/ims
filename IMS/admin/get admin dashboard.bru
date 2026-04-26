@@ -1,0 +1,20 @@
+meta {
+  name: get admin dashboard
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:8000/api/admin-dashboard
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: 26|HXyyRsaOeG0CEki88TdsCr76Z2uNo3aNLVUq5Nuj2313a3c0
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

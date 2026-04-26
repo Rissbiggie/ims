@@ -1,0 +1,25 @@
+meta {
+  name: delete a product
+  type: http
+  seq: 4
+}
+
+delete {
+  url: http://localhost:8000/api/products/1
+  body: json
+  auth: bearer
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: 8|L7coAeHMzkb0mIkBEMHmKJZQJ6y4XVp1NwuNZFjp86d58f2b
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

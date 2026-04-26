@@ -1,35 +1,18 @@
-import Sidebar from '../components/sidebar';
-import Topbar from '../components/topbar';
-import { useAuthStore } from '../stores/authStore';
+import { Outlet } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import Topbar from '../components/Topbar';
 
-export default function Layout({ children }) {
-  const { token } = useAuthStore();
-
-  if (!token) {
-    return <>{children}</>;
-  }
-
+export default function MainLayout() {
   return (
-    <div
-      className="flex h-screen bg-gray-50"
-      style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
-    >
+    <div className="flex h-screen bg-gray-50 font-sans overflow-hidden">
       <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');`}</style>
-
-      {/* Sidebar */}
       <Sidebar />
-
-      {/* Main area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-
+      <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
-
         <main className="flex-1 overflow-y-auto p-6">
-          {children}
+          <Outlet />
         </main>
-
       </div>
-
     </div>
   );
 }

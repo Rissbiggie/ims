@@ -22,16 +22,15 @@ services:
       - SESSION_DRIVER=redis
       - QUEUE_CONNECTION=redis
       - REDIS_HOST=redis
-      - VITE_API_URL=http://localhost:8000/api
+      - VITE_API_URL=/api
     ports:
       - "8000:80" # Host 8000 -> Container Nginx 80
     volumes:
-      - .:/var/www
-      - /var/www/node_modules        # Shield for modules
-      - /var/www/public/build        # <--- ADD THIS EXACT LINE (No dot/colon)
-      - ./storage:/var/www/storage
-      - ./database:/var/www/database
-      - ./bootstrap/cache:/var/www/bootstrap/cache
+     - .:/var/www            
+     - ./storage:/var/www/storage
+     - ./database:/var/www/database
+     - ./bootstrap/cache:/var/www/bootstrap/cache
+     - ./public/build:/var/www/public/build
       
     networks:
       - ims-network

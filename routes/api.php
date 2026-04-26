@@ -1,8 +1,11 @@
 <?php
 
+use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ClerkDashboardController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ManagerDashboardController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ReportController;
@@ -28,6 +31,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Dashboard ─────────────────────────────────────────────────────────────
     Route::get('/dashboard', [DashboardController::class, 'index']);
+
+    // ── Role-Based Dashboards ─────────────────────────────────────────────────
+    Route::middleware('role:admin')->prefix('admin-dashboard')->group(function () {
+        Route::get('/', [AdminDashboardController::class, 'index']);
+        Route::get('/user-activity', [AdminDashboardController::class, 'userActivity']);
+        Route::get('/system-health', [AdminDashboardController::class, 'systemHealth']);
+    });
+
+    Route::middleware('role:manager')->prefix('manager-dashboard')->group(function () {
+        Route::get('/', [ManagerDashboardController::class, 'index']);
+        Route::get('/approval-queue', [ManagerDashboardController::class, 'approvalQueue']);
+        Route::get('/procurement-metrics', [ManagerDashboardController::class, 'procurementMetrics']);
+    });
+
+    Route::middleware('role:store_clerk')->prefix('clerk-dashboard')->group(function () {
+        Route::get('/', [ClerkDashboardController::class, 'index']);
+        Route::get('/todays-tasks', [ClerkDashboardController::class, 'todaysTasks']);
+        Route::get('/pending-operations', [ClerkDashboardController::class, 'pendingOperations']);
+    });
 
     // ── Products ──────────────────────────────────────────────────────────────
     Route::apiResource('products', ProductController::class);

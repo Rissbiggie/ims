@@ -130,8 +130,9 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const response = await login(email, password);
+      // Redirect to role-specific dashboard
+      navigate(response.dashboard_route || '/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
