@@ -33,21 +33,38 @@ class AdminDashboardService
     /**
      * Get system-wide overview.
      */
-    private function getSystemOverview(): array
-    {
-        $totalProducts = Product::active()->count();
-        $totalValue = Product::active()->sum(DB::raw('current_quantity * unit_price'));
-        $lowStockCount = Product::active()->lowStock()->count();
-        $outOfStockCount = Product::active()->outOfStock()->count();
+ // app/Services/AdminDashboardService.php
+// app/Services/AdminDashboardService.php
 
-        return [
-            'total_products' => $totalProducts,
-            'total_inventory_value' => round($totalValue, 2),
-            'low_stock_items' => $lowStockCount,
-            'out_of_stock_items' => $outOfStockCount,
-            'inventory_health' => $this->calculateInventoryHealth($lowStockCount, $outOfStockCount, $totalProducts),
-        ];
-    }
+private function getSystemOverview(): array
+{
+    // 1. Basic count
+    $totalProducts = Product::where('is_active', true)->count();
+
+    // 2. Total Value (using quantity_on_hand)
+    $totalValue = Product::where('is_active', true)
+        ->selectRaw('SUM(quantity_on_hand * unit_price) as total_val')
+        ->value('total_val') ?? 0;
+
+    // 3. Low Stock (quantity_on_hand <= minimum_stock)
+    $lowStockCount = Product::where('is_active', true)
+        ->whereColumn('quantity_on_hand', '<=', 'minimum_stock')
+        ->where('quantity_on_hand', '>', 0)
+        ->count();
+
+    // 4. Out of Stock
+    $outOfStockCount = Product::where('is_active', true)
+        ->where('quantity_on_hand', '<=', 0)
+        ->count();
+
+    return [
+        'total_products' => $totalProducts,
+        'total_inventory_value' => round((float)$totalValue, 2),
+        'low_stock_items' => $lowStockCount,
+        'out_of_stock_items' => $outOfStockCount,
+        'inventory_health' => $this->calculateInventoryHealth($lowStockCount, $outOfStockCount, $totalProducts),
+    ];
+}
 
     /**
      * Get critical metrics for admin visibility.
@@ -114,45 +131,51 @@ class AdminDashboardService
     /**
      * Get user statistics.
      */
-    private function getUserStatistics(): array
-    {
-        $activeUsers = User::active()->count();
-        $inactiveUsers = User::where('is_active', false)->count();
+private function getUserStatistics(): array
+{
+    $activeUsers = User::where('is_active', true)->count();
+    $inactiveUsers = User::where('is_active', false)->count();
 
-        $loginStats = User::select('role', DB::raw('COUNT(*) as count'))
-            ->active()
-            ->groupBy('role')
-            ->get()
-            ->mapWithKeys(fn ($row) => [$row->role->value => $row->count])
-            ->toArray();
+    // Use DB query directly for the count to avoid Enum casting issues during grouping
+    $loginStats = DB::table('users')
+        ->select('role', DB::raw('COUNT(*) as count'))
+        ->where('is_active', true)
+        ->groupBy('role')
+        ->get()
+        ->pluck('count', 'role')
+        ->toArray();
 
-        return [
-            'total_active' => $activeUsers,
-            'total_inactive' => $inactiveUsers,
-            'by_role' => $loginStats,
-            'last_24h_logins' => User::where('last_login_at', '>=', Carbon::now()->subDay())->count(),
-            'last_7d_logins' => User::where('last_login_at', '>=', Carbon::now()->subDays(7))->count(),
-        ];
-    }
+    return [
+        'total_active' => $activeUsers,
+        'total_inactive' => $inactiveUsers,
+        'by_role' => $loginStats,
+        'last_24h_logins' => User::where('last_login_at', '>=', Carbon::now()->subDay())->count(),
+        'last_7d_logins' => User::where('last_login_at', '>=', Carbon::now()->subDays(7))->count(),
+    ];
+}
 
     /**
      * Get financial summary.
      */
-    private function getFinancialSummary(): array
-    {
-        $thisMonth = Carbon::now()->startOfMonth();
+ private function getFinancialSummary(): array
+{
+    $thisMonth = \Carbon\Carbon::now()->startOfMonth();
 
-        $poTotal = PurchaseOrder::where('status', 'approved')
-            ->whereBetween('created_at', [$thisMonth, $thisMonth->copy()->endOfMonth()])
-            ->sum('total_value');
+    $poTotal = \App\Models\PurchaseOrder::where('status', 'approved')
+        ->whereBetween('created_at', [$thisMonth, $thisMonth->copy()->endOfMonth()])
+        ->sum('total_value');
 
-        return [
-            'monthly_po_value' => round($poTotal, 2),
-            'current_inventory_value' => round(Product::active()->sum(DB::raw('current_quantity * unit_price')), 2),
-            'avg_monthly_po_cost' => $this->getAverageMonthlyPOCost(),
-        ];
-    }
+    // 5. Current Inventory Value (using quantity_on_hand)
+    $inventoryValue = Product::where('is_active', true)
+        ->selectRaw('SUM(quantity_on_hand * unit_price) as total_val')
+        ->value('total_val') ?? 0;
 
+    return [
+        'monthly_po_value' => round($poTotal, 2),
+        'current_inventory_value' => round((float)$inventoryValue, 2),
+        'avg_monthly_po_cost' => $this->getAverageMonthlyPOCost(),
+    ];
+}
     /**
      * Get system health and performance metrics.
      */

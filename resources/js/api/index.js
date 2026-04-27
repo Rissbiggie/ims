@@ -38,10 +38,11 @@ export const purchaseOrdersApi = {
   list: (params) => client.get('/purchase-orders', { params }),
   get: (id) => client.get(`/purchase-orders/${id}`),
   create: (data) => client.post('/purchase-orders', data),
+  update: (id, data) => client.put(`/purchase-orders/${id}`, data),
   submit: (id) => client.post(`/purchase-orders/${id}/submit`),
   approve: (id) => client.post(`/purchase-orders/${id}/approve`),
   reject: (id) => client.post(`/purchase-orders/${id}/reject`),
-  receive: (id) => client.post(`/purchase-orders/${id}/receive`),
+  receive: (id, data) => client.post(`/purchase-orders/${id}/receive`, data), // <-- FIXED: Now accepts data
 };
 
 export const requisitionsApi = {

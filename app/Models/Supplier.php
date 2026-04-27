@@ -46,4 +46,6 @@ class Supplier extends Model
     {
         return $this->purchaseOrders()->sum('total_amount');
     }
+
+    
 }

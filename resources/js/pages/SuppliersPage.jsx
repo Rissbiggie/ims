@@ -112,7 +112,7 @@ export default function SuppliersPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
         {[
           { label: 'Total Suppliers', value: suppliers.length, color: 'text-gray-900' },
-          { label: 'Total Catalog Products', value: suppliers.reduce((acc, s) => acc + (s.products_count || 0), 0), color: 'text-blue-700' },
+          { label: 'Totat Purchase Orders', value: suppliers.reduce((acc, s) => acc + (s.purchase_orders_count || 0), 0), color: 'text-blue-700' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-gray-50 rounded-md px-4 py-3">
             <p className="font-mono text-xs text-gray-400 uppercase tracking-widest mb-1">{label}</p>
@@ -171,7 +171,7 @@ export default function SuppliersPage() {
               <Th>Supplier Name</Th>
               <Th>Contact Person</Th>
               <Th>Email & Phone</Th>
-              <Th right>Products</Th>
+              <Th right>Orders</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
@@ -179,7 +179,7 @@ export default function SuppliersPage() {
             {suppliers.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center py-10 font-mono text-xs text-gray-300 uppercase tracking-widest">
-                  No suppliers found in database.
+                  No suppliers found.
                 </td>
               </tr>
             ) : (
@@ -206,7 +206,7 @@ export default function SuppliersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-4 text-right">
-                    <span className="font-mono text-sm font-semibold bg-gray-100 px-2 py-1 rounded text-gray-700">{supplier.products_count || 0}</span>
+                    <span className="font-mono text-sm font-semibold bg-gray-100 px-2 py-1 rounded text-gray-700">{supplier.purchase_orders_count || 0}</span>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex gap-2 items-center">

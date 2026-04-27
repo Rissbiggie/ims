@@ -8,19 +8,18 @@ use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $suppliers = Supplier::withCount('products')
-            ->when($request->status, fn ($q) => $q->where('status', $request->status))
-            ->when($request->search, fn ($q) => $q->where(function ($q2) use ($request) {
-                $q2->where('name', 'like', "%{$request->search}%")
-                   ->orWhere('email', 'like', "%{$request->search}%");
-            }))
-            ->paginate($request->per_page ?? 20);
+  public function index(Request $request): JsonResponse
+{
+    $suppliers = Supplier::withCount('purchaseOrders') // Removed products, added purchaseOrders
+        ->when($request->status, fn ($q) => $q->where('status', $request->status))
+        ->when($request->search, fn ($q) => $q->where(function ($q2) use ($request) {
+            $q2->where('name', 'like', "%{$request->search}%")
+               ->orWhere('email', 'like', "%{$request->search}%");
+        }))
+        ->paginate($request->per_page ?? 20);
 
-        return response()->json($suppliers);
-    }
-
+    return response()->json($suppliers);
+}
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -35,12 +34,13 @@ class SupplierController extends Controller
 
         return response()->json(Supplier::create($data), 201);
     }
-
-    public function show(Supplier $supplier): JsonResponse
-    {
-        return response()->json($supplier->load(['products', 'purchaseOrders' => fn ($q) => $q->latest()->limit(10)]));
-    }
-
+public function show(Supplier $supplier): JsonResponse
+{
+    // Updated to only count purchase orders and load them
+    return response()->json($supplier->loadCount('purchaseOrders')->load([
+        'purchaseOrders' => fn ($q) => $q->latest()->limit(10)
+    ]));
+}
     public function update(Request $request, Supplier $supplier): JsonResponse
     {
         $data = $request->validate([

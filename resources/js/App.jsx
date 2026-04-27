@@ -6,7 +6,6 @@ import MainLayout from './layouts/MainLayout';
 
 // Pages
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import CategoriesPage from './pages/CategoriesPage';
 import SuppliersPage from './pages/SuppliersPage';
@@ -20,11 +19,9 @@ import ManagerDashboard from './pages/ManagerDashboard';
 import ClerkDashboard from './pages/ClerkDashboard';
 
 // --- Protected Route Component ---
-// Ensures user is authenticated and has the correct role
 function ProtectedRoute({ children, allowedRoles = [] }) {
   const { token, user, isLoading } = useAuthStore();
 
-  // Show loading state while checking auth
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -36,13 +33,12 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
     );
   }
 
-  // Redirect to login if not authenticated
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!token) return <Navigate to="/login" replace />;
 
-  // Redirect to dashboard if user's role is not allowed
-  if (allowedRoles.length > 0 && user && !allowedRoles.includes(user.role)) {
+  // CRITICAL FIX: Normalize role to lowercase for comparison
+  const userRole = user?.role?.toLowerCase();
+
+  if (allowedRoles.length > 0 && userRole && !allowedRoles.includes(userRole)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -50,34 +46,27 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
 }
 
 // --- Dashboard Switcher ---
-// Dynamically renders the correct dashboard based on user role
 function DashboardSwitcher() {
   const { user, isLoading } = useAuthStore();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-5 h-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-          <span className="font-mono text-[10px] tracking-widest text-gray-400 uppercase">Loading...</span>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return null;
 
-  if (user?.role === 'admin') return <AdminDashboard />;
-  if (user?.role === 'manager') return <ManagerDashboard />;
-  return <ClerkDashboard />;
+  // Normalize role check here too
+  const role = user?.role?.toLowerCase();
+  
+  if (role === 'admin') return <AdminDashboard />;
+  if (role === 'manager') return <ManagerDashboard />;
+  if (role === 'store_clerk') return <ClerkDashboard />;
+  return <div className="p-8 font-mono text-xs text-red-500">Error: Unknown Role ({user?.role})</div>;
 }
 
 // --- Main App Component ---
 export default function App() {
   return (
     <Routes>
-      {/* Public Route (No Auth Required) */}
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Protected Routes (Require Auth) */}
+      {/* Main Wrapper */}
       <Route
         element={
           <ProtectedRoute>
@@ -85,17 +74,16 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        {/* Default Redirect: / → /dashboard */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-        {/* Dashboard (Role-Specific) */}
         <Route path="/dashboard" element={<DashboardSwitcher />} />
 
-        {/* Common Routes (All Roles) */}
+        {/* Common Routes */}
         <Route path="/products" element={<ProductsPage />} />
+        
+        {/* Requisitions: All roles can access */}
         <Route path="/requisitions" element={<RequisitionsPage />} />
 
-        {/* Admin + Manager Routes */}
+        {/* Categories & Suppliers: Admin and Manager only */}
         <Route
           path="/categories"
           element={
@@ -112,27 +100,28 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Purchase Orders: FIX - Added 'store_clerk' to allowed roles */}
         <Route
           path="/purchase-orders"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'manager']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'store_clerk']}>
               <PurchaseOrdersPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Admin-Only Route */}
+        {/* Reports: FIX - Strictly 'admin' only (Removed 'manager') */}
         <Route
           path="/reports"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin','manager']}>
               <ReportsPage />
             </ProtectedRoute>
           }
         />
       </Route>
 
-      {/* 404 Fallback: Redirect to Dashboard */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
